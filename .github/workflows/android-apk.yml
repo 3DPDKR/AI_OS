@@ -1,9 +1,15 @@
 name: Build Android APK
 
+# Build policy:
+# - Code/MD edits do not automatically start APK builds.
+# - Build only after user approval via workflow_dispatch.
+# - This avoids duplicate builds while development changes are accumulating.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+
+concurrency:
+  group: ai-os-android-apk
+  cancel-in-progress: false
 
 jobs:
   build:
