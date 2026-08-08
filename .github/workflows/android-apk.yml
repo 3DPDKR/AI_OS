@@ -53,13 +53,12 @@ jobs:
           g = re.sub(r'compileSdk\s*=\s*\d+', 'compileSdk = 36', g)
           gradle.write_text(g)
           PY
-          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager 2>/dev/null | head -1)
-          if [ -n "$SDKMANAGER" ]; then
-            yes | "$SDKMANAGER" "platforms;android-36" >/dev/null || true
-          fi
 
       - name: Get dependencies
         run: flutter pub get
+
+      - name: Verify dependency resolution
+        run: flutter pub deps --style=compact | grep -E 'file_picker|flutter_plugin_android_lifecycle' || true
 
       - name: Analyze
         run: flutter analyze
