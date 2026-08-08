@@ -20,10 +20,11 @@ jobs:
         with:
           channel: stable
           cache: true
-      - name: Create Android
-        run: |
-          if [ ! -d android ]; then flutter create --platforms=android --org com.juinim .; rm -f test/widget_test.dart; fi
-      - name: Configure Android 36 and AI OS label
+      - name: Clean generated state
+        run: rm -rf android build .dart_tool pubspec.lock
+      - name: Generate Android fresh
+        run: flutter create --platforms=android --org com.juinim . && rm -f test/widget_test.dart
+      - name: Configure Android
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -31,14 +32,16 @@ jobs:
           p=Path('android/app/src/main/AndroidManifest.xml'); s=p.read_text(); p.write_text(re.sub(r'android:label="[^"]*"','android:label="AI OS"',s))
           p=Path('android/app/build.gradle.kts'); s=p.read_text(); s=re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion','compileSdk = 36',s); s=re.sub(r'compileSdk\s*=\s*\d+','compileSdk = 36',s); p.write_text(s)
           PY
-      - name: Dependencies
+      - name: Resolve dependencies fresh
         run: flutter pub get
+      - name: Ensure file_picker is absent
+        run: '! flutter pub deps --style=compact | grep -q "file_picker"'
       - name: Analyze
         run: flutter analyze
       - name: Build APK
         run: flutter build apk --debug
-      - name: Verify APK exists
-        run: test -s build/app/outputs/flutter-apk/app-debug.apk
+      - name: Verify APK
+        run: test -s build/app/outputs/flutter-apk/app-debug.apk && ls -lh build/app/outputs/flutter-apk/app-debug.apk
       - uses: actions/upload-artifact@v4
         with:
           name: AI_OS-v0.2.0-debug-apk
