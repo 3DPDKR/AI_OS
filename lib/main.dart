@@ -6,7 +6,6 @@ import 'package:image_picker/image_picker.dart';
 import 'core/providers/gemini_client.dart';
 
 void main() => runApp(const AiOsApp());
-
 const secureStorage = FlutterSecureStorage();
 
 class AiOsApp extends StatelessWidget {
@@ -15,106 +14,30 @@ class AiOsApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(title: 'AI OS', debugShowCheckedModeBanner: false, theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo), home: const MainShell());
 }
 
-class MainShell extends StatefulWidget {
-  const MainShell({super.key});
-  @override
-  State<MainShell> createState() => _MainShellState();
-}
-
+class MainShell extends StatefulWidget { const MainShell({super.key}); @override State<MainShell> createState() => _MainShellState(); }
 class _MainShellState extends State<MainShell> {
   int index = 0;
-  @override
-  Widget build(BuildContext context) {
-    final pages = [const ChatPage(), const AiRoomPage(), const HistoryPage(), const SettingsPage()];
-    return Scaffold(body: SafeArea(child: IndexedStack(index: index, children: pages)), bottomNavigationBar: NavigationBar(selectedIndex: index, onDestinationSelected: (v) => setState(() => index = v), destinations: const [
-      NavigationDestination(icon: Icon(Icons.chat_bubble_outline), selectedIcon: Icon(Icons.chat_bubble), label: '채팅'),
-      NavigationDestination(icon: Icon(Icons.hub_outlined), selectedIcon: Icon(Icons.hub), label: 'AI 대화방'),
-      NavigationDestination(icon: Icon(Icons.history), label: '기록'),
-      NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: '설정'),
-    ]));
-  }
+  @override Widget build(BuildContext context) { final pages = [const ChatPage(), const AiRoomPage(), const HistoryPage(), const SettingsPage()]; return Scaffold(body: SafeArea(child: IndexedStack(index: index, children: pages)), bottomNavigationBar: NavigationBar(selectedIndex: index, onDestinationSelected: (v) => setState(() => index = v), destinations: const [NavigationDestination(icon: Icon(Icons.chat_bubble_outline), selectedIcon: Icon(Icons.chat_bubble), label: '채팅'), NavigationDestination(icon: Icon(Icons.hub_outlined), selectedIcon: Icon(Icons.hub), label: 'AI 대화방'), NavigationDestination(icon: Icon(Icons.history), label: '기록'), NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: '설정')])); }
 }
 
-class ChatMessage {
-  ChatMessage(this.text, this.user, {this.attachment});
-  final String text;
-  final bool user;
-  final String? attachment;
-}
-
-class ChatPage extends StatefulWidget {
-  const ChatPage({super.key});
-  @override
-  State<ChatPage> createState() => _ChatPageState();
-}
-
+class ChatMessage { ChatMessage(this.text, this.user, {this.attachment}); final String text; final bool user; final String? attachment; }
+class ChatPage extends StatefulWidget { const ChatPage({super.key}); @override State<ChatPage> createState() => _ChatPageState(); }
 class _ChatPageState extends State<ChatPage> {
-  final controller = TextEditingController();
-  final messages = <ChatMessage>[];
-  final gemini = const GeminiClient();
-  bool busy = false;
-  String? attachment;
-
-  Future<void> attach() async {
-    await showModalBottomSheet<void>(context: context, builder: (ctx) => SafeArea(child: Wrap(children: [
-      ListTile(leading: const Icon(Icons.camera_alt_outlined), title: const Text('카메라 촬영'), onTap: () async { Navigator.pop(ctx); final x = await ImagePicker().pickImage(source: ImageSource.camera, imageQuality: 90); if (x != null && mounted) setState(() => attachment = x.path); }),
-      ListTile(leading: const Icon(Icons.photo_library_outlined), title: const Text('사진 선택'), onTap: () async { Navigator.pop(ctx); final x = await ImagePicker().pickImage(source: ImageSource.gallery); if (x != null && mounted) setState(() => attachment = x.path); }),
-      ListTile(leading: const Icon(Icons.attach_file), title: const Text('파일 선택'), onTap: () async { Navigator.pop(ctx); final r = await fp.FilePicker().pickFiles(); if (r != null && mounted) setState(() => attachment = r.files.single.name); }),
-    ])));
-  }
-
-  Future<void> send() async {
-    final text = controller.text.trim();
-    if ((text.isEmpty && attachment == null) || busy) return;
-    final sentAttachment = attachment;
-    setState(() { messages.add(ChatMessage(text.isEmpty ? '첨부파일 분석' : text, true, attachment: sentAttachment)); controller.clear(); attachment = null; busy = true; });
-    try {
-      final key = await secureStorage.read(key: 'gemini_api_key') ?? '';
-      if (key.isEmpty) throw Exception('설정에서 Gemini API Key를 먼저 입력하세요.');
-      final prompt = sentAttachment == null ? text : '$text\n\n첨부파일: $sentAttachment\n현재 버전에서는 첨부파일 경로/이름을 전달합니다.';
-      final answer = await gemini.chat(apiKey: key, prompt: prompt);
-      if (mounted) setState(() => messages.add(ChatMessage(answer, false)));
-    } catch (e) {
-      if (mounted) setState(() => messages.add(ChatMessage('응답 실패\n$e', false)));
-    } finally {
-      if (mounted) setState(() => busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => Column(children: [
-    const ListTile(title: Text('AI OS', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)), subtitle: Text('최상의 결과를 위한 AI 운영체제')),
-    const Divider(height: 1),
-    Expanded(child: messages.isEmpty ? const Center(child: Text('무엇을 도와드릴까요?')) : ListView.builder(padding: const EdgeInsets.all(12), itemCount: messages.length, itemBuilder: (_, i) { final m = messages[i]; return Align(alignment: m.user ? Alignment.centerRight : Alignment.centerLeft, child: Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [if (m.attachment != null) Text('첨부: ${m.attachment}'), Text(m.text)])))); })),
-    if (busy) const LinearProgressIndicator(),
-    if (attachment != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Row(children: [const Icon(Icons.attach_file, size: 18), const SizedBox(width: 6), Expanded(child: Text(attachment!, maxLines: 1, overflow: TextOverflow.ellipsis)), IconButton(onPressed: () => setState(() => attachment = null), icon: const Icon(Icons.close))])),
-    SafeArea(top: false, child: Padding(padding: const EdgeInsets.all(8), child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [IconButton(onPressed: busy ? null : attach, icon: const Icon(Icons.add)), Expanded(child: TextField(controller: controller, minLines: 1, maxLines: 5, decoration: const InputDecoration(hintText: '메시지를 입력하세요...', border: OutlineInputBorder()))), IconButton(onPressed: busy ? null : send, icon: Icon(busy ? Icons.hourglass_top : Icons.send))]))),
-  ]);
+  final controller = TextEditingController(); final messages = <ChatMessage>[]; final gemini = const GeminiClient(); bool busy = false; String? attachment;
+  Future<void> attach() async { await showModalBottomSheet<void>(context: context, builder: (ctx) => SafeArea(child: Wrap(children: [
+    ListTile(leading: const Icon(Icons.camera_alt_outlined), title: const Text('카메라 촬영'), onTap: () async { Navigator.pop(ctx); final x = await ImagePicker().pickImage(source: ImageSource.camera, imageQuality: 90); if (x != null && mounted) setState(() => attachment = x.path); }),
+    ListTile(leading: const Icon(Icons.photo_library_outlined), title: const Text('사진 선택'), onTap: () async { Navigator.pop(ctx); final x = await ImagePicker().pickImage(source: ImageSource.gallery); if (x != null && mounted) setState(() => attachment = x.path); }),
+    ListTile(leading: const Icon(Icons.attach_file), title: const Text('파일 선택'), onTap: () async { Navigator.pop(ctx); final r = await fp.FilePicker.pickFiles(); if (r != null && mounted) setState(() => attachment = r.files.single.name); }),
+  ]))); }
+  Future<void> send() async { final text = controller.text.trim(); if ((text.isEmpty && attachment == null) || busy) return; final sentAttachment = attachment; setState(() { messages.add(ChatMessage(text.isEmpty ? '첨부파일 분석' : text, true, attachment: sentAttachment)); controller.clear(); attachment = null; busy = true; }); try { final key = await secureStorage.read(key: 'gemini_api_key') ?? ''; if (key.isEmpty) throw Exception('설정에서 Gemini API Key를 먼저 입력하세요.'); final prompt = sentAttachment == null ? text : '$text\n\n첨부파일: $sentAttachment'; final answer = await gemini.chat(apiKey: key, prompt: prompt); if (mounted) setState(() => messages.add(ChatMessage(answer, false))); } catch (e) { if (mounted) setState(() => messages.add(ChatMessage('응답 실패\n$e', false))); } finally { if (mounted) setState(() => busy = false); } }
+  @override Widget build(BuildContext context) => Column(children: [const ListTile(title: Text('AI OS', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)), subtitle: Text('최상의 결과를 위한 AI 운영체제')), const Divider(height: 1), Expanded(child: messages.isEmpty ? const Center(child: Text('무엇을 도와드릴까요?')) : ListView.builder(padding: const EdgeInsets.all(12), itemCount: messages.length, itemBuilder: (_, i) { final m = messages[i]; return Align(alignment: m.user ? Alignment.centerRight : Alignment.centerLeft, child: Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [if (m.attachment != null) Text('첨부: ${m.attachment}'), Text(m.text)])))); })), if (busy) const LinearProgressIndicator(), if (attachment != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Row(children: [const Icon(Icons.attach_file, size: 18), const SizedBox(width: 6), Expanded(child: Text(attachment!, maxLines: 1, overflow: TextOverflow.ellipsis)), IconButton(onPressed: () => setState(() => attachment = null), icon: const Icon(Icons.close))])), SafeArea(top: false, child: Padding(padding: const EdgeInsets.all(8), child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [IconButton(onPressed: busy ? null : attach, icon: const Icon(Icons.add)), Expanded(child: TextField(controller: controller, minLines: 1, maxLines: 5, decoration: const InputDecoration(hintText: '메시지를 입력하세요...', border: OutlineInputBorder()))), IconButton(onPressed: busy ? null : send, icon: Icon(busy ? Icons.hourglass_top : Icons.send))])))]);
 }
-
 class AiRoomPage extends StatelessWidget { const AiRoomPage({super.key}); @override Widget build(BuildContext context) => const _EmptyPage(title: 'AI 대화방', message: 'Planner → Provider → Quality → Result 처리 흐름을 이 화면에 연결합니다.', icon: Icons.hub); }
 class HistoryPage extends StatelessWidget { const HistoryPage({super.key}); @override Widget build(BuildContext context) => const _EmptyPage(title: '기록', message: '대화와 최종 결과 저장 기능을 연결 중입니다.', icon: Icons.history); }
-
 class SettingsPage extends StatefulWidget { const SettingsPage({super.key}); @override State<SettingsPage> createState() => _SettingsPageState(); }
 class _SettingsPageState extends State<SettingsPage> {
-  bool freeFirst = true;
-  bool paidEnabled = false;
-  final providers = <String, bool>{'Gemini': true, 'Groq': false, 'OpenRouter Free': false, 'Hugging Face': false, 'OpenAI API': false, 'Claude API': false};
-  Future<void> apiKeyDialog(String provider) async {
-    final key = provider == 'Gemini' ? 'gemini_api_key' : '${provider.toLowerCase().replaceAll(' ', '_')}_api_key';
-    final c = TextEditingController(text: await secureStorage.read(key: key) ?? '');
-    if (!mounted) return;
-    await showDialog<void>(context: context, builder: (ctx) => AlertDialog(title: Text('$provider API 설정'), content: TextField(controller: c, obscureText: true, decoration: const InputDecoration(labelText: 'API Key', border: OutlineInputBorder())), actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')), FilledButton(onPressed: () async { await secureStorage.write(key: key, value: c.text.trim()); if (ctx.mounted) Navigator.pop(ctx); }, child: const Text('저장'))]));
-  }
-  @override Widget build(BuildContext context) => ListView(children: [
-    const ListTile(title: Text('설정', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)), subtitle: Text('AI 선택 · API · 비용 · 저장공간')),
-    SwitchListTile(value: freeFirst, onChanged: (v) => setState(() => freeFirst = v), title: const Text('무료 AI 우선')),
-    SwitchListTile(value: paidEnabled, onChanged: (v) => setState(() => paidEnabled = v), title: const Text('유료 API 사용 허용'), subtitle: const Text('기본 OFF · Cost Guard 적용')),
-    const ListTile(leading: Icon(Icons.account_balance_wallet_outlined), title: Text('사용량 / 비용 한도'), subtitle: Text('공식 Quota 또는 AI OS 추정값 표시')),
-    const Divider(),
-    ...providers.entries.map((e) => Card(margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), child: Column(children: [SwitchListTile(value: e.value, onChanged: (v) => setState(() => providers[e.key] = v), title: Text(e.key)), OverflowBar(alignment: MainAxisAlignment.end, children: [TextButton.icon(onPressed: () => apiKeyDialog(e.key), icon: const Icon(Icons.key), label: const Text('API 설정')), TextButton.icon(onPressed: () {}, icon: const Icon(Icons.monitor_heart_outlined), label: const Text('연결 확인'))])]))),
-    const Divider(), const ListTile(leading: Icon(Icons.folder_outlined), title: Text('저장공간'), subtitle: Text('Local-Light · Cloud Archive 선택')), const ListTile(leading: Icon(Icons.security_outlined), title: Text('보안'), subtitle: Text('API Key는 Android 보안 저장소에 저장')), const Divider(), const ListTile(title: Text('AI OS'), subtitle: Text('Version 0.2.0\nCreator: Daehyun Kang')),
-  ]);
+  bool freeFirst = true; bool paidEnabled = false; final providers = <String, bool>{'Gemini': true, 'Groq': false, 'OpenRouter Free': false, 'Hugging Face': false, 'OpenAI API': false, 'Claude API': false};
+  Future<void> apiKeyDialog(String provider) async { final key = provider == 'Gemini' ? 'gemini_api_key' : '${provider.toLowerCase().replaceAll(' ', '_')}_api_key'; final c = TextEditingController(text: await secureStorage.read(key: key) ?? ''); if (!mounted) return; await showDialog<void>(context: context, builder: (ctx) => AlertDialog(title: Text('$provider API 설정'), content: TextField(controller: c, obscureText: true, decoration: const InputDecoration(labelText: 'API Key', border: OutlineInputBorder())), actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')), FilledButton(onPressed: () async { await secureStorage.write(key: key, value: c.text.trim()); if (ctx.mounted) Navigator.pop(ctx); }, child: const Text('저장'))])); }
+  @override Widget build(BuildContext context) => ListView(children: [const ListTile(title: Text('설정', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)), subtitle: Text('AI 선택 · API · 비용 · 저장공간')), SwitchListTile(value: freeFirst, onChanged: (v) => setState(() => freeFirst = v), title: const Text('무료 AI 우선')), SwitchListTile(value: paidEnabled, onChanged: (v) => setState(() => paidEnabled = v), title: const Text('유료 API 사용 허용'), subtitle: const Text('기본 OFF · Cost Guard 적용')), const ListTile(leading: Icon(Icons.account_balance_wallet_outlined), title: Text('사용량 / 비용 한도'), subtitle: Text('공식 Quota 또는 AI OS 추정값 표시')), const Divider(), ...providers.entries.map((e) => Card(margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), child: Column(children: [SwitchListTile(value: e.value, onChanged: (v) => setState(() => providers[e.key] = v), title: Text(e.key)), OverflowBar(alignment: MainAxisAlignment.end, children: [TextButton.icon(onPressed: () => apiKeyDialog(e.key), icon: const Icon(Icons.key), label: const Text('API 설정')), TextButton.icon(onPressed: () {}, icon: const Icon(Icons.monitor_heart_outlined), label: const Text('연결 확인'))])]))), const Divider(), const ListTile(leading: Icon(Icons.folder_outlined), title: Text('저장공간'), subtitle: Text('Local-Light · Cloud Archive 선택')), const ListTile(leading: Icon(Icons.security_outlined), title: Text('보안'), subtitle: Text('API Key는 Android 보안 저장소에 저장')), const Divider(), const ListTile(title: Text('AI OS'), subtitle: Text('Version 0.2.0\nCreator: Daehyun Kang'))]);
 }
-
 class _EmptyPage extends StatelessWidget { const _EmptyPage({required this.title, required this.message, required this.icon}); final String title; final String message; final IconData icon; @override Widget build(BuildContext context) => Column(children: [ListTile(title: Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold))), Expanded(child: Center(child: Padding(padding: const EdgeInsets.all(32), child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 52), const SizedBox(height: 16), Text(message, textAlign: TextAlign.center)]))))]); }
