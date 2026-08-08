@@ -1,64 +1,45 @@
 name: Build Android APK
-
-# Explicitly approved build: continue until APK is produced.
 on:
   push:
     branches: [main]
-    paths:
-      - '.github/workflows/android-apk.yml'
+    paths: ['.github/workflows/android-apk.yml']
   workflow_dispatch:
-
 concurrency:
   group: ai-os-android-apk
   cancel-in-progress: false
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Java
-        uses: actions/setup-java@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-      - name: Create Android platform files when missing
+      - name: Create Android
         run: |
-          if [ ! -d android ]; then
-            flutter create --platforms=android --org com.juinim .
-            rm -f test/widget_test.dart
-          fi
-      - name: Configure Android app
+          if [ ! -d android ]; then flutter create --platforms=android --org com.juinim .; rm -f test/widget_test.dart; fi
+      - name: Configure Android 36 and AI OS label
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
-          manifest = Path('android/app/src/main/AndroidManifest.xml')
-          s = manifest.read_text()
-          s = re.sub(r'android:label="[^"]*"', 'android:label="AI OS"', s)
-          manifest.write_text(s)
-          gradle = Path('android/app/build.gradle.kts')
-          g = gradle.read_text()
-          g = re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion', 'compileSdk = 36', g)
-          g = re.sub(r'compileSdk\s*=\s*\d+', 'compileSdk = 36', g)
-          gradle.write_text(g)
+          p=Path('android/app/src/main/AndroidManifest.xml'); s=p.read_text(); p.write_text(re.sub(r'android:label="[^"]*"','android:label="AI OS"',s))
+          p=Path('android/app/build.gradle.kts'); s=p.read_text(); s=re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion','compileSdk = 36',s); s=re.sub(r'compileSdk\s*=\s*\d+','compileSdk = 36',s); p.write_text(s)
           PY
-      - name: Get dependencies
+      - name: Dependencies
         run: flutter pub get
-      - name: Verify dependencies
-        run: flutter pub deps --style=compact | grep -E 'file_picker|flutter_plugin_android_lifecycle' || true
       - name: Analyze
         run: flutter analyze
       - name: Build APK
         run: flutter build apk --debug
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Verify APK exists
+        run: test -s build/app/outputs/flutter-apk/app-debug.apk
+      - uses: actions/upload-artifact@v4
         with:
           name: AI_OS-v0.2.0-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
