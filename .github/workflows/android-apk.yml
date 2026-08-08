@@ -1,7 +1,6 @@
 name: Build Android APK
 
-# Build policy: this commit is the explicitly approved build trigger.
-# After this run, restore workflow_dispatch-only mode before further feature edits.
+# Explicitly approved build: produce APK after current fixes.
 on:
   push:
     branches: [main]
@@ -43,9 +42,9 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p = Path('android/app/src/main/AndroidManifest.xml')
           s = p.read_text()
-          import re
           s = re.sub(r'android:label="[^"]*"', 'android:label="AI OS"', s)
           p.write_text(s)
           PY
