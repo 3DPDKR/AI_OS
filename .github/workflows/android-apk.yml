@@ -18,26 +18,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-
       - name: Create Android platform files when missing
         run: |
           if [ ! -d android ]; then
             flutter create --platforms=android --org com.juinim .
             rm -f test/widget_test.dart
           fi
-
       - name: Configure Android app
         run: |
           python3 - <<'PY'
@@ -53,19 +49,14 @@ jobs:
           g = re.sub(r'compileSdk\s*=\s*\d+', 'compileSdk = 36', g)
           gradle.write_text(g)
           PY
-
       - name: Get dependencies
         run: flutter pub get
-
-      - name: Verify dependency resolution
+      - name: Verify dependencies
         run: flutter pub deps --style=compact | grep -E 'file_picker|flutter_plugin_android_lifecycle' || true
-
       - name: Analyze
         run: flutter analyze
-
       - name: Build APK
         run: flutter build apk --debug
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
