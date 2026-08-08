@@ -1,6 +1,6 @@
 name: Build Android APK
 
-# Explicitly approved build: produce APK after current fixes.
+# Explicitly approved build: continue until APK is produced.
 on:
   push:
     branches: [main]
@@ -38,16 +38,22 @@ jobs:
             rm -f test/widget_test.dart
           fi
 
-      - name: Set Android app label
+      - name: Configure Android app
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
-          p = Path('android/app/src/main/AndroidManifest.xml')
-          s = p.read_text()
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          s = manifest.read_text()
           s = re.sub(r'android:label="[^"]*"', 'android:label="AI OS"', s)
-          p.write_text(s)
+          manifest.write_text(s)
+          gradle = Path('android/app/build.gradle.kts')
+          g = gradle.read_text()
+          g = re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion', 'compileSdk = 36', g)
+          g = re.sub(r'compileSdk\s*=\s*\d+', 'compileSdk = 36', g)
+          gradle.write_text(g)
           PY
+          yes | sdkmanager "platforms;android-36" >/dev/null
 
       - name: Get dependencies
         run: flutter pub get
