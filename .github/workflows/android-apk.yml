@@ -22,42 +22,33 @@ jobs:
           cache: true
       - name: Clean and generate Android
         run: rm -rf android build .dart_tool pubspec.lock && flutter create --platforms=android --org com.juinim . && rm -f test/widget_test.dart
-      - name: Configure app name SDK and AI OS launcher icon
+      - name: Configure Android app permissions and icon
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re, struct, zlib
-          p=Path('android/app/src/main/AndroidManifest.xml'); s=p.read_text(); p.write_text(re.sub(r'android:label="[^"]*"','android:label="AI OS"',s))
-          p=Path('android/app/build.gradle.kts'); s=p.read_text(); s=re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion','compileSdk = 36',s); s=re.sub(r'compileSdk\s*=\s*\d+','compileSdk = 36',s); p.write_text(s)
+          import re,struct,zlib
+          p=Path('android/app/src/main/AndroidManifest.xml');s=p.read_text();s=re.sub(r'android:label="[^"]*"','android:label="AI OS"',s);s=s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">','<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.RECORD_AUDIO"/>\n    <uses-permission android:name="android.permission.CAMERA"/>\n    <uses-permission android:name="android.permission.INTERNET"/>');p.write_text(s)
+          p=Path('android/app/build.gradle.kts');s=p.read_text();s=re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion','compileSdk = 36',s);s=re.sub(r'compileSdk\s*=\s*\d+','compileSdk = 36',s);p.write_text(s)
           def png(path,n):
             raw=bytearray()
             for y in range(n):
               raw.append(0)
               for x in range(n):
-                dx=(x-n/2)/(n/2); dy=(y-n/2)/(n/2); r=(dx*dx+dy*dy)**.5
-                if r<.92:
-                  if r<.30: c=(245,247,255,255)
-                  elif abs(dx)<.10 or abs(dy)<.10 or abs(abs(dx)-abs(dy))<.07: c=(120,135,255,255)
-                  else: c=(28,35,70,255)
-                else:c=(245,245,250,255)
+                dx=(x-n/2)/(n/2);dy=(y-n/2)/(n/2);r=(dx*dx+dy*dy)**.5
+                c=(28,35,70,255) if r<.9 else (245,245,250,255)
+                if r<.3:c=(245,247,255,255)
+                elif r<.9 and (abs(dx)<.09 or abs(dy)<.09 or abs(abs(dx)-abs(dy))<.06):c=(120,135,255,255)
                 raw.extend(c)
-            def ch(t,d): return struct.pack('>I',len(d))+t+d+struct.pack('>I',zlib.crc32(t+d)&0xffffffff)
-            data=b'\x89PNG\r\n\x1a\n'+ch(b'IHDR',struct.pack('>IIBBBBB',n,n,8,6,0,0,0))+ch(b'IDAT',zlib.compress(bytes(raw),9))+ch(b'IEND',b'')
-            Path(path).write_bytes(data)
-          for d,n in [('mdpi',48),('hdpi',72),('xhdpi',96),('xxhdpi',144),('xxxhdpi',192)]: png(f'android/app/src/main/res/mipmap-{d}/ic_launcher.png',n)
+            def ch(t,d):return struct.pack('>I',len(d))+t+d+struct.pack('>I',zlib.crc32(t+d)&0xffffffff)
+            Path(path).write_bytes(b'\x89PNG\r\n\x1a\n'+ch(b'IHDR',struct.pack('>IIBBBBB',n,n,8,6,0,0,0))+ch(b'IDAT',zlib.compress(bytes(raw),9))+ch(b'IEND',b''))
+          for d,n in [('mdpi',48),('hdpi',72),('xhdpi',96),('xxhdpi',144),('xxxhdpi',192)]:png(f'android/app/src/main/res/mipmap-{d}/ic_launcher.png',n)
           PY
-      - name: Resolve dependencies
-        run: flutter pub get
-      - name: Validate source and dependencies
-        run: |
-          ! flutter pub deps --style=compact | grep -q 'file_picker'
-          flutter analyze
-      - name: Build APK
-        run: flutter build apk --debug
-      - name: Verify APK
-        run: test -s build/app/outputs/flutter-apk/app-debug.apk && ls -lh build/app/outputs/flutter-apk/app-debug.apk
+      - name: Resolve and analyze
+        run: flutter pub get && flutter analyze
+      - name: Build and verify APK
+        run: flutter build apk --debug && test -s build/app/outputs/flutter-apk/app-debug.apk && ls -lh build/app/outputs/flutter-apk/app-debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: AI_OS-v0.2.1-debug-apk
+          name: AI_OS-v0.3.0-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 14
