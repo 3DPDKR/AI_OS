@@ -2,7 +2,11 @@ name: Build Android APK
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/android-apk.yml']
+    paths:
+      - '.github/workflows/android-apk.yml'
+      - 'lib/**'
+      - 'pubspec.yaml'
+      - 'analysis_options.yaml'
   workflow_dispatch:
 concurrency: {group: ai-os-android-apk, cancel-in-progress: false}
 jobs:
