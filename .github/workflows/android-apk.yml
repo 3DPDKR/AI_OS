@@ -41,14 +41,10 @@ jobs:
           p=Path('android/app/src/main/AndroidManifest.xml');s=p.read_text();s=re.sub(r'android:label="[^"]*"','android:label="AI OS"',s);s=s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">','<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n<uses-permission android:name="android.permission.RECORD_AUDIO"/>\n<uses-permission android:name="android.permission.CAMERA"/>\n<uses-permission android:name="android.permission.INTERNET"/>');p.write_text(s)
           p=Path('android/app/build.gradle.kts');s=p.read_text();s=re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion','compileSdk = 36',s);s=re.sub(r'compileSdk\s*=\s*\d+','compileSdk = 36',s);p.write_text(s)
           PY
-      - name: Validate Dart
-        run: flutter pub get && dart format --output=none --set-exit-if-changed lib || dart format lib
-      - name: Analyze
-        run: flutter analyze
-      - name: Build APK
-        run: flutter build apk --debug
-      - name: Verify APK
-        run: test -s build/app/outputs/flutter-apk/app-debug.apk && ls -lh build/app/outputs/flutter-apk/app-debug.apk
+      - name: Validate
+        run: flutter pub get && dart format --output=none lib && flutter analyze
+      - name: Build and verify APK
+        run: flutter build apk --debug && test -s build/app/outputs/flutter-apk/app-debug.apk && ls -lh build/app/outputs/flutter-apk/app-debug.apk
       - name: Create source ZIP
         run: zip -qr AI_OS-v0.3.0-source.zip . -x '.git/*' 'build/*' '.dart_tool/*' 'AI_OS-v0.3.0-source.zip'
       - uses: actions/upload-artifact@v4
