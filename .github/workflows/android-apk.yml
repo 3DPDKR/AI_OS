@@ -29,13 +29,11 @@ jobs:
           import io.flutter.embedding.android.FlutterActivity
           import io.flutter.embedding.engine.FlutterEngine
           import io.flutter.plugin.common.MethodChannel
-          class MainActivity: FlutterActivity() {
-            private val channel="ai_os/native"; private val request=7001; private var pending: MethodChannel.Result?=null
-            override fun configureFlutterEngine(engine: FlutterEngine){super.configureFlutterEngine(engine);MethodChannel(engine.dartExecutor.binaryMessenger,channel).setMethodCallHandler{call,result->if(call.method=="openDocument"){pending=result;val i=Intent(Intent.ACTION_OPEN_DOCUMENT).apply{addCategory(Intent.CATEGORY_OPENABLE);type="*/*";addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)};startActivityForResult(i,request)}else result.notImplemented()}}
-            override fun onActivityResult(req:Int,res:Int,data:Intent?){super.onActivityResult(req,res,data);if(req!=request)return;val r=pending;pending=null;if(res!=Activity.RESULT_OK||data?.data==null){r?.success(null);return};val u=data.data!!;try{contentResolver.takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION)}catch(_:Exception){};var name="document";var size:Long=-1;contentResolver.query(u,null,null,null,null)?.use{c->val ni=c.getColumnIndex(OpenableColumns.DISPLAY_NAME);val si=c.getColumnIndex(OpenableColumns.SIZE);if(c.moveToFirst()){if(ni>=0)name=c.getString(ni);if(si>=0&&!c.isNull(si))size=c.getLong(si)}};r?.success(mapOf("uri" to u.toString(),"name" to name,"size" to size))}
-          }
+          class MainActivity: FlutterActivity(){private val ch="ai_os/native";private val req=7001;private var pending:MethodChannel.Result?=null
+          override fun configureFlutterEngine(e:FlutterEngine){super.configureFlutterEngine(e);MethodChannel(e.dartExecutor.binaryMessenger,ch).setMethodCallHandler{c,r->if(c.method=="openDocument"){pending=r;startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply{addCategory(Intent.CATEGORY_OPENABLE);type="*/*";addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)},req)}else r.notImplemented()}}
+          override fun onActivityResult(q:Int,s:Int,d:Intent?){super.onActivityResult(q,s,d);if(q!=req)return;val r=pending;pending=null;if(s!=Activity.RESULT_OK||d?.data==null){r?.success(null);return};val u=d.data!!;try{contentResolver.takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION)}catch(_:Exception){};var n="document";var z:Long=-1;contentResolver.query(u,null,null,null,null)?.use{c->val ni=c.getColumnIndex(OpenableColumns.DISPLAY_NAME);val si=c.getColumnIndex(OpenableColumns.SIZE);if(c.moveToFirst()){if(ni>=0)n=c.getString(ni);if(si>=0&&!c.isNull(si))z=c.getLong(si)}};r?.success(mapOf("uri" to u.toString(),"name" to n,"size" to z))}}
           KT
-      - name: Configure app
+      - name: Configure Android
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -43,14 +41,20 @@ jobs:
           p=Path('android/app/src/main/AndroidManifest.xml');s=p.read_text();s=re.sub(r'android:label="[^"]*"','android:label="AI OS"',s);s=s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">','<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n<uses-permission android:name="android.permission.RECORD_AUDIO"/>\n<uses-permission android:name="android.permission.CAMERA"/>\n<uses-permission android:name="android.permission.INTERNET"/>');p.write_text(s)
           p=Path('android/app/build.gradle.kts');s=p.read_text();s=re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion','compileSdk = 36',s);s=re.sub(r'compileSdk\s*=\s*\d+','compileSdk = 36',s);p.write_text(s)
           PY
-      - name: Validate
-        run: flutter pub get && flutter analyze
+      - name: Validate Dart
+        run: flutter pub get && dart format --output=none --set-exit-if-changed lib || dart format lib
+      - name: Analyze
+        run: flutter analyze
       - name: Build APK
         run: flutter build apk --debug
       - name: Verify APK
         run: test -s build/app/outputs/flutter-apk/app-debug.apk && ls -lh build/app/outputs/flutter-apk/app-debug.apk
+      - name: Create source ZIP
+        run: zip -qr AI_OS-v0.3.0-source.zip . -x '.git/*' 'build/*' '.dart_tool/*' 'AI_OS-v0.3.0-source.zip'
       - uses: actions/upload-artifact@v4
         with:
-          name: AI_OS-v0.3.0-document-voice-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: AI_OS-v0.3.0-downloads
+          path: |
+            build/app/outputs/flutter-apk/app-debug.apk
+            AI_OS-v0.3.0-source.zip
           retention-days: 14
