@@ -4,9 +4,7 @@ on:
     branches: [main]
     paths: ['.github/workflows/android-apk.yml']
   workflow_dispatch:
-concurrency:
-  group: ai-os-android-apk
-  cancel-in-progress: false
+concurrency: {group: ai-os-android-apk, cancel-in-progress: false}
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,7 +14,7 @@ jobs:
         with: {distribution: temurin, java-version: '17'}
       - uses: subosito/flutter-action@v2
         with: {channel: stable, cache: true}
-      - name: Generate Android and native document picker
+      - name: Generate Android native integration
         run: |
           rm -rf android build .dart_tool pubspec.lock
           flutter create --platforms=android --org com.juinim .
@@ -29,28 +27,47 @@ jobs:
           import io.flutter.embedding.android.FlutterActivity
           import io.flutter.embedding.engine.FlutterEngine
           import io.flutter.plugin.common.MethodChannel
-          class MainActivity: FlutterActivity(){private val ch="ai_os/native";private val req=7001;private var pending:MethodChannel.Result?=null
+          class MainActivity:FlutterActivity(){private val ch="ai_os/native";private val req=7001;private var pending:MethodChannel.Result?=null
           override fun configureFlutterEngine(e:FlutterEngine){super.configureFlutterEngine(e);MethodChannel(e.dartExecutor.binaryMessenger,ch).setMethodCallHandler{c,r->if(c.method=="openDocument"){pending=r;startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply{addCategory(Intent.CATEGORY_OPENABLE);type="*/*";addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)},req)}else r.notImplemented()}}
-          override fun onActivityResult(q:Int,s:Int,d:Intent?){super.onActivityResult(q,s,d);if(q!=req)return;val r=pending;pending=null;if(s!=Activity.RESULT_OK||d?.data==null){r?.success(null);return};val u=d.data!!;try{contentResolver.takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION)}catch(_:Exception){};var n="document";var z:Long=-1;contentResolver.query(u,null,null,null,null)?.use{c->val ni=c.getColumnIndex(OpenableColumns.DISPLAY_NAME);val si=c.getColumnIndex(OpenableColumns.SIZE);if(c.moveToFirst()){if(ni>=0)n=c.getString(ni);if(si>=0&&!c.isNull(si))z=c.getLong(si)}};r?.success(mapOf("uri" to u.toString(),"name" to n,"size" to z))}}
+          override fun onActivityResult(q:Int,s:Int,d:Intent?){super.onActivityResult(q,s,d);if(q!=req)return;val r=pending;pending=null;if(s!=Activity.RESULT_OK||d?.data==null){r?.success(null);return};val u=d.data!!;try{contentResolver.takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION)}catch(_:Exception){};var n="document";var z:Long=-1;contentResolver.query(u,null,null,null,null)?.use{c->val ni=c.getColumnIndex(OpenableColumns.DISPLAY_NAME);val si=c.getColumnIndex(OpenableColumns.SIZE);if(c.moveToFirst()){if(ni>=0)n=c.getString(ni);if(si>=0&&!c.isNull(si))z=c.getLong(si)}};var t:String?=null;try{if(z in 0..2097152)t=contentResolver.openInputStream(u)?.bufferedReader()?.use{it.readText()}}catch(_:Exception){};r?.success(mapOf("uri" to u.toString(),"name" to n,"size" to z,"text" to t))}}
           KT
-      - name: Configure Android
+      - name: Configure permissions label icon and SDK
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
+          import re,struct,zlib
           p=Path('android/app/src/main/AndroidManifest.xml');s=p.read_text();s=re.sub(r'android:label="[^"]*"','android:label="AI OS"',s);s=s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">','<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n<uses-permission android:name="android.permission.RECORD_AUDIO"/>\n<uses-permission android:name="android.permission.CAMERA"/>\n<uses-permission android:name="android.permission.INTERNET"/>');p.write_text(s)
           p=Path('android/app/build.gradle.kts');s=p.read_text();s=re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion','compileSdk = 36',s);s=re.sub(r'compileSdk\s*=\s*\d+','compileSdk = 36',s);p.write_text(s)
+          def png(path,n):
+            raw=bytearray()
+            for y in range(n):
+              raw.append(0)
+              for x in range(n):
+                dx=(x-n/2)/(n/2);dy=(y-n/2)/(n/2);r=(dx*dx+dy*dy)**.5;c=(18,22,45,255) if r<.91 else (242,243,250,255)
+                if r<.23:c=(238,241,255,255)
+                elif r<.82 and (abs(dx)<.07 or abs(dy)<.07 or abs(abs(dx)-abs(dy))<.045):c=(113,126,255,255)
+                raw.extend(c)
+            def ch(t,d):return struct.pack('>I',len(d))+t+d+struct.pack('>I',zlib.crc32(t+d)&0xffffffff)
+            Path(path).write_bytes(b'\x89PNG\r\n\x1a\n'+ch(b'IHDR',struct.pack('>IIBBBBB',n,n,8,6,0,0,0))+ch(b'IDAT',zlib.compress(bytes(raw),9))+ch(b'IEND',b''))
+          for d,n in [('mdpi',48),('hdpi',72),('xhdpi',96),('xxhdpi',144),('xxxhdpi',192)]:png(f'android/app/src/main/res/mipmap-{d}/ic_launcher.png',n)
           PY
-      - name: Validate
-        run: flutter pub get && dart format --output=none lib && flutter analyze
-      - name: Build and verify APK
+      - name: Regression checks and analyze
+        run: |
+          flutter pub get
+          grep -q "openDocument" lib/main.dart
+          grep -q "SpeechToText" lib/main.dart
+          grep -q "OpenRouter Free" lib/main.dart
+          grep -q "AI 대화방" lib/main.dart
+          grep -q "Permission.microphone.isGranted" lib/main.dart
+          flutter analyze
+      - name: Build verify APK
         run: flutter build apk --debug && test -s build/app/outputs/flutter-apk/app-debug.apk && ls -lh build/app/outputs/flutter-apk/app-debug.apk
       - name: Create source ZIP
-        run: zip -qr AI_OS-v0.3.0-source.zip . -x '.git/*' 'build/*' '.dart_tool/*' 'AI_OS-v0.3.0-source.zip'
+        run: zip -qr AI_OS-v0.4.0-source.zip . -x '.git/*' 'build/*' '.dart_tool/*' 'AI_OS-v0.4.0-source.zip'
       - uses: actions/upload-artifact@v4
         with:
-          name: AI_OS-v0.3.0-downloads
+          name: AI_OS-v0.4.0-downloads
           path: |
             build/app/outputs/flutter-apk/app-debug.apk
-            AI_OS-v0.3.0-source.zip
+            AI_OS-v0.4.0-source.zip
           retention-days: 14
