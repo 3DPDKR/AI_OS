@@ -136,9 +136,13 @@ class ConsentStore:
         with self.db:
             self.db.execute("DELETE FROM messages WHERE sender_id=? OR recipient_id=?",
                             (participant_id,participant_id))
+            # Keep revoked credentials unusable without violating the UNIQUE
+            # indexes when more than one participant withdraws. A shared empty
+            # string would prevent the second withdrawal transaction entirely.
             self.db.execute("""UPDATE participants SET state='withdrawn', contact='[withdrawn]',
-                alias='[withdrawn]', scopes='[]', confirm_digest='',access_digest='',
-                withdrawal_digest='' WHERE id=?""",(participant_id,))
+                alias='[withdrawn]', scopes='[]', confirm_digest='', access_digest=?,
+                withdrawal_digest=? WHERE id=?""",
+                (_digest(_make_token()), _digest(_make_token()), participant_id))
             self._audit(participant_id,"consent_withdrawn")
         return True
 
