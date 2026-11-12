@@ -15,7 +15,7 @@ import re
 from .consent import ConsentError, ConsentStore
 from .relay import OfflineRelay
 
-_NODE_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,64}\\Z")
+_NODE_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
 
 
 class Unavailable(ConsentError):
