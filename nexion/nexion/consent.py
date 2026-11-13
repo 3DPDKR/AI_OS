@@ -128,37 +128,58 @@ class ConsentStore:
         return rec
 
     def withdraw(self, participant_id: str, withdrawal_token: str) -> bool:
-        rec=self.db.execute("SELECT * FROM participants WHERE id=?",(participant_id,)).fetchone()
-        if rec is None or rec["state"]=="withdrawn":
-            raise ConsentError("No active or pending participation found")
-        if not hmac.compare_digest(rec["withdrawal_digest"],_digest(withdrawal_token)):
-            raise ConsentError("Invalid withdrawal token")
+        """Atomically revoke consent and delete all stored peer messages.
+
+        BEGIN IMMEDIATE serializes this operation with send_peer_message() on
+        *other SQLite connections to the same file*. Without taking the write
+        lock before consent checks, a send can validate stale consent and then
+        insert a message after revocation has already committed.
+        """
         with self.db:
-            self.db.execute("DELETE FROM messages WHERE sender_id=? OR recipient_id=?",
-                            (participant_id,participant_id))
-            # Keep revoked credentials unusable without violating the UNIQUE
-            # indexes when more than one participant withdraws. A shared empty
-            # string would prevent the second withdrawal transaction entirely.
+            self.db.execute("BEGIN IMMEDIATE")
+            rec = self.db.execute(
+                "SELECT * FROM participants WHERE id=?", (participant_id,)
+            ).fetchone()
+            if rec is None or rec["state"] == "withdrawn":
+                raise ConsentError("No active or pending participation found")
+            if not hmac.compare_digest(rec["withdrawal_digest"], _digest(withdrawal_token)):
+                raise ConsentError("Invalid withdrawal token")
+            self.db.execute(
+                "DELETE FROM messages WHERE sender_id=? OR recipient_id=?",
+                (participant_id, participant_id),
+            )
+            # Replace revoked credentials with distinct, unguessable digests:
+            # a shared empty string would violate existing UNIQUE indexes.
             self.db.execute("""UPDATE participants SET state='withdrawn', contact='[withdrawn]',
                 alias='[withdrawn]', scopes='[]', confirm_digest='', access_digest=?,
                 withdrawal_digest=? WHERE id=?""",
                 (_digest(_make_token()), _digest(_make_token()), participant_id))
-            self._audit(participant_id,"consent_withdrawn")
+            self._audit(participant_id, "consent_withdrawn")
         return True
 
     def send_peer_message(self, access_token: str, recipient_id: str, body: str) -> str:
-        sender=self._actor(access_token,"peer_chat")
-        recipient=self.db.execute("SELECT * FROM participants WHERE id=?",(recipient_id,)).fetchone()
-        if recipient is None or recipient["state"]!="active" or "peer_chat" not in json.loads(recipient["scopes"]):
-            raise ConsentError("Recipient has not opted in to peer chat")
-        body=body.strip()
-        if not (1 <= len(body) <= 1000):
+        """Atomically re-check both opt-ins and insert a local-only message.
+
+        An in-flight send may commit *before* withdrawal; the subsequent
+        withdrawal then deletes it. A send after withdrawal commits is denied.
+        This is an SQLite single-database property, not a distributed guarantee.
+        """
+        if not isinstance(body, str) or not (1 <= len(body.strip()) <= 1000):
             raise ConsentError("Messages must be 1..1000 characters")
-        msg_id=str(uuid.uuid4())
+        body = body.strip()
+        msg_id = str(uuid.uuid4())
         with self.db:
+            self.db.execute("BEGIN IMMEDIATE")
+            sender = self._actor(access_token, "peer_chat")
+            recipient = self.db.execute(
+                "SELECT * FROM participants WHERE id=?", (recipient_id,)
+            ).fetchone()
+            if (recipient is None or recipient["state"] != "active"
+                    or "peer_chat" not in json.loads(recipient["scopes"])):
+                raise ConsentError("Recipient has not opted in to peer chat")
             self.db.execute("INSERT INTO messages VALUES (?,?,?,?,?)",
-                            (msg_id,sender["id"],recipient_id,body,_utcnow().isoformat()))
-            self._audit(sender["id"],"peer_message_created")
+                            (msg_id, sender["id"], recipient_id, body, _utcnow().isoformat()))
+            self._audit(sender["id"], "peer_message_created")
         return msg_id
 
     def inbox(self, access_token: str) -> list[dict]:
