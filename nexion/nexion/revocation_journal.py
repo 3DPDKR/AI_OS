@@ -49,6 +49,12 @@ class RevocationJournal:
         self.db = sqlite3.connect(path)
         self.db.row_factory = sqlite3.Row
         try:
+            if not new_file:
+                present = {row[0] for row in self.db.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'")}
+                required = {"journal_head", "journal_events", "replica_checkpoints"}
+                if not required.issubset(present):
+                    raise JournalCorruption("Existing journal is missing required tables")
             self.db.executescript("""
                 CREATE TABLE IF NOT EXISTS journal_head (
                     singleton INTEGER PRIMARY KEY CHECK(singleton=1),
