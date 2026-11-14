@@ -174,6 +174,16 @@ class RevocationJournalTests(unittest.TestCase):
         with self.assertRaises(JournalCorruption):
             RevocationJournal(self.log_path)
 
+    def test_missing_checkpoint_table_on_restart_fails_closed(self):
+        self.withdraw(self.bob)
+        self.lab.sync("node-a")
+        self.lab.close()
+        self.lab = None
+        with sqlite3.connect(self.log_path) as db:
+            db.execute("DROP TABLE replica_checkpoints")
+        with self.assertRaises(JournalCorruption):
+            DistributedConsentLab(self.store, ["node-a"], journal_path=self.log_path)
+
     def test_no_network_or_actuation_methods(self):
         for name in ("send", "broadcast", "connect", "actuate", "purchase"):
             self.assertFalse(hasattr(self.lab._journal, name))
