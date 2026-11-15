@@ -51,7 +51,9 @@ class DistributedConsentLab:
 
     def __init__(self, store: ConsentStore, node_names: list[str], *,
                  clock: Optional[Callable[[], datetime]] = None,
-                 journal_path: Optional[str | Path] = None):
+                 journal_path: Optional[str | Path] = None,
+                 anchor_path: Optional[str | Path] = None,
+                 anchor_key: Optional[bytes] = None):
         if not node_names or len(node_names) != len(set(node_names)):
             raise ValueError("Node names must be unique and nonempty")
         if any(not isinstance(name, str) or _NODE_PATTERN.fullmatch(name) is None
@@ -65,7 +67,11 @@ class DistributedConsentLab:
         self.authority_available = True
         self._events: list[RevocationEvent] = []
         self._clock = clock
-        self._journal = RevocationJournal(journal_path) if journal_path is not None else None
+        if journal_path is None and (anchor_path is not None or anchor_key is not None):
+            raise ValueError("Journal path is required when enabling an anchor")
+        self._journal = (RevocationJournal(journal_path, anchor_path=anchor_path,
+                                           anchor_key=anchor_key)
+                         if journal_path is not None else None)
         self._journal_fault = False
         if self._journal is not None:
             for node in self.nodes.values():
