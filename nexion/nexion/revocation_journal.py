@@ -14,6 +14,7 @@ import sqlite3
 from typing import Optional
 
 from .consent import ConsentError
+from .journal_anchor import JournalAnchor, AnchorMismatch
 
 
 GENESIS = "0" * 64
@@ -39,13 +40,21 @@ class RevocationJournal:
     against an attacker capable of rewriting both journal rows and metadata.
     """
 
-    def __init__(self, db_path: str | Path):
+    def __init__(self, db_path: str | Path, *,
+                 anchor_path: str | Path | None = None,
+                 anchor_key: bytes | None = None):
         path = str(db_path)
         if path == ":memory:":
             raise ValueError("A persistent file path is required for the restart experiment")
         if not path:
             raise ValueError("Journal path cannot be empty")
         new_file = not Path(path).exists()
+        if (anchor_path is None) != (anchor_key is None):
+            raise ValueError("Anchor path and secret key must be provided together")
+        if anchor_path is not None and Path(anchor_path).resolve() == Path(path).resolve():
+            raise ValueError("Anchor must be a separate file from the journal")
+        self._anchor = (JournalAnchor(anchor_path, anchor_key)
+                        if anchor_path is not None else None)
         self.db = sqlite3.connect(path)
         self.db.row_factory = sqlite3.Row
         try:
@@ -80,6 +89,11 @@ class RevocationJournal:
                     raise JournalCorruption("Existing journal lacks its committed head")
                 with self.db:
                     self.db.execute("INSERT INTO journal_head VALUES (1, 0, ?, NULL)", (GENESIS,))
+            if self._anchor is not None:
+                # An existing journal missing its anchor, or a freshly created
+                # journal with an old anchor, must not silently re-bootstrap.
+                if new_file:
+                    self._anchor.initialize(self._anchor_snapshot())
             self.verify()
         except BaseException:
             self.db.close()
@@ -96,6 +110,20 @@ class RevocationJournal:
         if head is None:
             raise JournalCorruption("Missing journal head")
         return head
+
+    def _anchor_snapshot(self) -> dict:
+        head = self._head()
+        checkpoints = [list(row) for row in self.db.execute(
+            "SELECT node_name,sequence,digest FROM replica_checkpoints ORDER BY node_name")]
+        checkpoint_digest = hashlib.sha256(json.dumps(
+            checkpoints, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+        return {"sequence": head["sequence"], "digest": head["digest"],
+                "pending": head["pending_participant"],
+                "checkpoint_digest": checkpoint_digest}
+
+    def _update_anchor(self) -> None:
+        if self._anchor is not None:
+            self._anchor.record(self._anchor_snapshot())
 
     def verify(self, *, allow_pending: bool = False) -> int:
         """Verify entire local chain AND checkpoint digests before any delivery.
@@ -124,6 +152,8 @@ class RevocationJournal:
                 if (row["sequence"] not in digests
                         or row["digest"] != digests[row["sequence"]]):
                     raise JournalCorruption("Replica checkpoint not anchored in event chain")
+            if self._anchor is not None:
+                self._anchor.verify(self._anchor_snapshot())
             return sequence
         except (sqlite3.DatabaseError, TypeError, ValueError) as exc:
             raise JournalCorruption("Journal could not be validated") from exc
@@ -140,6 +170,7 @@ class RevocationJournal:
                 raise ValueError("Participant identifier required")
             self.db.execute("UPDATE journal_head SET pending_participant=? WHERE singleton=1",
                             (participant_id,))
+        self._update_anchor()
 
     def abort_withdrawal(self, participant_id: str) -> None:
         """Only for a known rolled-back/failed store withdrawal (not for crashes)."""
@@ -150,6 +181,7 @@ class RevocationJournal:
                 raise JournalCorruption("Withdrawal intent mismatch")
             self.verify(allow_pending=True)
             self.db.execute("UPDATE journal_head SET pending_participant=NULL WHERE singleton=1")
+        self._update_anchor()
 
     def finish_withdrawal(self, participant_id: str) -> JournalEvent:
         """Atomically append event and clear reserved intent in journal SQLite."""
@@ -165,6 +197,7 @@ class RevocationJournal:
                             (sequence, participant_id, head["digest"], digest))
             self.db.execute("""UPDATE journal_head SET sequence=?,digest=?,
                 pending_participant=NULL WHERE singleton=1""", (sequence, digest))
+        self._update_anchor()
         return JournalEvent(sequence, participant_id)
 
     def events(self, *, after: int = 0) -> tuple[JournalEvent, ...]:
@@ -193,6 +226,7 @@ class RevocationJournal:
             self.db.execute("""INSERT INTO replica_checkpoints VALUES (?,?,?)
                 ON CONFLICT(node_name) DO UPDATE SET sequence=excluded.sequence,digest=excluded.digest""",
                 (node, sequence, digest))
+        self._update_anchor()
 
     def restore(self, node: str) -> tuple[int, set[str]]:
         """On restart, reconstruct acknowledged withdrawals from durable events."""
