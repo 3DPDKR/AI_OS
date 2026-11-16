@@ -55,6 +55,7 @@ class RevocationJournal:
             raise ValueError("Anchor must be a separate file from the journal")
         self._anchor = (JournalAnchor(anchor_path, anchor_key)
                         if anchor_path is not None else None)
+        self._review_only = False
         self.db = sqlite3.connect(path)
         self.db.row_factory = sqlite3.Row
         try:
@@ -99,6 +100,40 @@ class RevocationJournal:
             self.db.close()
             raise
 
+    @classmethod
+    def open_for_review(cls, db_path: str | Path, *,
+                        anchor_path: str | Path | None = None,
+                        anchor_key: bytes | None = None) -> "RevocationJournal":
+        """Open an existing log read-only, including an authenticated pending intent.
+
+        An ordinary constructor still refuses to resume if an intent is pending.
+        This handle exists solely for human diagnostic review and cannot write.
+        """
+        path = Path(db_path)
+        if not path.is_file():
+            raise JournalCorruption("Review requires an existing journal file")
+        if (anchor_path is None) != (anchor_key is None):
+            raise ValueError("Anchor path and key must be provided together")
+        if anchor_path is not None and Path(anchor_path).resolve() == path.resolve():
+            raise ValueError("Anchor and journal must be separate")
+        review = cls.__new__(cls)
+        review._review_only = True
+        review._anchor = (JournalAnchor(anchor_path, anchor_key)
+                          if anchor_path is not None else None)
+        try:
+            review.db = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
+            review.db.row_factory = sqlite3.Row
+            review.verify(allow_pending=True)
+            return review
+        except BaseException:
+            if hasattr(review, "db"):
+                review.db.close()
+            raise
+
+    def _require_writable(self) -> None:
+        if self._review_only:
+            raise JournalCorruption("Review handle is read-only")
+
     @staticmethod
     def _hash(sequence: int, participant_id: str, previous: str) -> str:
         canonical = json.dumps(["NEXION-revocation-v1", sequence, participant_id, previous],
@@ -122,6 +157,7 @@ class RevocationJournal:
                 "checkpoint_digest": checkpoint_digest}
 
     def _update_anchor(self) -> None:
+        self._require_writable()
         if self._anchor is not None:
             self._anchor.record(self._anchor_snapshot())
 
@@ -163,6 +199,7 @@ class RevocationJournal:
 
         A crash before finish() leaves the journal blocked until reconciliation.
         """
+        self._require_writable()
         with self.db:
             self.db.execute("BEGIN IMMEDIATE")
             self.verify()
@@ -174,6 +211,7 @@ class RevocationJournal:
 
     def abort_withdrawal(self, participant_id: str) -> None:
         """Only for a known rolled-back/failed store withdrawal (not for crashes)."""
+        self._require_writable()
         with self.db:
             self.db.execute("BEGIN IMMEDIATE")
             head = self._head()
@@ -185,6 +223,7 @@ class RevocationJournal:
 
     def finish_withdrawal(self, participant_id: str) -> JournalEvent:
         """Atomically append event and clear reserved intent in journal SQLite."""
+        self._require_writable()
         with self.db:
             self.db.execute("BEGIN IMMEDIATE")
             head = self._head()
@@ -211,6 +250,7 @@ class RevocationJournal:
 
     def checkpoint(self, node: str, sequence: int) -> None:
         """Persist last applied log cursor, including its content digest."""
+        self._require_writable()
         with self.db:
             self.db.execute("BEGIN IMMEDIATE")
             head = self.verify()
