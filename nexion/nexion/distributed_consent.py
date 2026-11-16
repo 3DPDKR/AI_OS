@@ -16,6 +16,7 @@ import re
 from .consent import ConsentError, ConsentStore
 from .relay import OfflineRelay
 from .revocation_journal import RevocationJournal, JournalCorruption
+from .recovery_review import assess_recovery
 
 _NODE_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
 
@@ -74,18 +75,27 @@ class DistributedConsentLab:
                          if journal_path is not None else None)
         self._journal_fault = False
         if self._journal is not None:
-            for node in self.nodes.values():
-                node.cursor, node.observed_withdrawals = self._journal.restore(node.name)
+            try:
+                # A valid journal alone does not prove the consent authority agrees.
+                # Refuse restart when one DB has been restored independently.
+                self._verify_journal()
+                for node in self.nodes.values():
+                    node.cursor, node.observed_withdrawals = self._journal.restore(node.name)
+            except BaseException:
+                self._journal.close()
+                raise
 
     def _verify_journal(self) -> None:
         if self._journal_fault:
             raise Unavailable("Prior journal error; reject operations until operator review")
         if self._journal is not None:
             try:
-                self._journal.verify()
+                assessment = assess_recovery(self.store, self._journal)
+                if not assessment.delivery_permitted:
+                    raise JournalCorruption("Authority/journal recovery assessment denied")
             except JournalCorruption as exc:
                 self._journal_fault = True
-                raise Unavailable("Revocation journal integrity unknown; operation denied") from exc
+                raise Unavailable("Revocation journal or authority inconsistent; denied") from exc
 
     def restart_node(self, node_name: str) -> None:
         """Simulate process restart: in-memory queued messages are discarded.
