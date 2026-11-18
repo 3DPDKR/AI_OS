@@ -60,8 +60,11 @@ def _snapshot(store: ConsentStore, journal: RevocationJournal) -> str:
         # Also detect out-of-band message writes after drafting a plan.
         messages = [list(row) for row in store.db.execute(
             "SELECT * FROM messages ORDER BY id")]
-        canonical = json.dumps(["NEXION-recovery-snapshot-v1", participants,
-                                events, head, messages], ensure_ascii=False,
+        # Audit-only changes also invalidate a pre-approved repair plan.
+        audit = [list(row) for row in store.db.execute(
+            "SELECT * FROM audit ORDER BY id")]
+        canonical = json.dumps(["NEXION-recovery-snapshot-v2", participants,
+                                events, head, messages, audit], ensure_ascii=False,
                                separators=(",", ":"))
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     except (sqlite3.Error, JournalCorruption, ValueError, TypeError, KeyError) as exc:
@@ -187,10 +190,17 @@ class RecoveryReviewSession:
         approver = _label(approved_by, "approver")
         if approver == self.requested_by:
             raise RecoveryDenied("Requester cannot approve own draft in this simulation")
+        # Two checks model a possible change during final approval. Do not
+        # persist APPROVED until both have succeeded: otherwise a failure in
+        # the second check leaves a phantom approval in memory.
         self._check_current(store, journal, at)
+        self._check_current(store, journal, at)
+        order = RecoveryWorkOrder(self.plan.plan_id, self.plan.action,
+                                  self.plan.participant_id, self.evidence_reference,
+                                  self.reviewed_by, approver)
         self.approved_by = approver
         self.state = "APPROVED"
-        return self.work_order(store, journal, at=at)
+        return order
 
     def work_order(self, store: ConsentStore, journal: RevocationJournal, *,
                    at: datetime | None = None) -> RecoveryWorkOrder:
