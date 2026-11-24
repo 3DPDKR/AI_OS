@@ -3,7 +3,7 @@ from .core import Swarm, Unit, Task
 from .agent import ResearchAgent, Goal, GoalPolicy
 from math import isfinite
 
-SDK_VERSION = "0.1.0"
+SDK_VERSION = "0.2.0"
 
 def select_model(baseline, candidates, *, min_samples=100, min_gain=0.01):
     """Select an offline candidate from paired, independently held-out losses.
@@ -29,3 +29,5 @@ def select_model(baseline, candidates, *, min_samples=100, min_gain=0.01):
             best, gain = name, improvement
     return {"selected": best, "gain": gain, "samples": len(base),
             "requires_independent_confirmation": best != "baseline"}
+
+from .adaptive import AdaptiveEngine, Policy, HealthMonitor
