@@ -10,7 +10,8 @@ class Policy:
     min_gain: float = 0.02
     max_loss: float = 1.0
     def __post_init__(self):
-        if not (2 <= self.min_samples <= self.window <= 10000):
+        if (type(self.min_samples) is not int or type(self.window) is not int or
+                not 2 <= self.min_samples <= self.window <= 10000):
             raise ValueError("invalid sample bounds")
         if not (isfinite(self.max_loss) and 0 < self.max_loss <= 1e6 and
                 isfinite(self.min_gain) and 0 < self.min_gain <= self.max_loss):
@@ -28,10 +29,16 @@ class AdaptiveEngine:
     def observe(self, sequence, baseline_loss, candidate_loss):
         if type(sequence) is not int or sequence <= self._last:
             raise ValueError("sequence must increase")
-        if any(not isfinite(x) or not 0 <= x <= self.policy.max_loss
-               for x in (baseline_loss, candidate_loss)):
-            raise ValueError("loss outside bounds")
-        self._pairs.append((baseline_loss, candidate_loss))
+        losses = []
+        for value in (baseline_loss, candidate_loss):
+            try:
+                if (isinstance(value, bool) or not isfinite(value) or
+                        not 0 <= value <= self.policy.max_loss):
+                    raise ValueError("loss outside bounds")
+                losses.append(float(value))
+            except (TypeError, OverflowError, ValueError) as exc:
+                raise ValueError("loss outside bounds") from exc
+        self._pairs.append(tuple(losses))
         self._last = sequence
     def assess(self):
         n = len(self._pairs)
