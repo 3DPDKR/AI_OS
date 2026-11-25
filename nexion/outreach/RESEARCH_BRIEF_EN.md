@@ -34,3 +34,6 @@ Please use https://github.com/3DPDKR/AI_OS/issues/1 and state your technical are
 - A materials and actuator trade-off matrix with measurements.
 - A modular mechanical interface proposal and safety review.
 - An explicitly reproducible software test baseline with CI evidence.
+
+## Research update — 2026-11-25
+[Static land-locomotion screening (bilingual)](./LAND_FEASIBILITY_20261125.md): all 2,592 sampled 5-degree configurations satisfy the assumed static criteria. This is not physical walking validation. We welcome voluntary review of the model, mass distribution, torque and friction measurements.
