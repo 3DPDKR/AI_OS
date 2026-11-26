@@ -13,9 +13,20 @@ class Policy:
         if (type(self.min_samples) is not int or type(self.window) is not int or
                 not 2 <= self.min_samples <= self.window <= 10000):
             raise ValueError("invalid sample bounds")
-        if not (isfinite(self.max_loss) and 0 < self.max_loss <= 1e6 and
-                isfinite(self.min_gain) and 0 < self.min_gain <= self.max_loss):
-            raise ValueError("invalid loss bounds")
+        # Canonicalize policy values to the same float representation as losses.
+        # Reject bools and values that underflow to zero before they reach assess().
+        try:
+            if (isinstance(self.max_loss, bool) or isinstance(self.min_gain, bool) or
+                    not isfinite(self.max_loss) or not isfinite(self.min_gain) or
+                    not 0 < self.min_gain <= self.max_loss <= 1e6):
+                raise ValueError("invalid loss bounds")
+            max_loss, min_gain = float(self.max_loss), float(self.min_gain)
+            if not 0 < min_gain <= max_loss <= 1e6:
+                raise ValueError("invalid loss bounds")
+        except (TypeError, OverflowError, ValueError) as exc:
+            raise ValueError("invalid loss bounds") from exc
+        object.__setattr__(self, "max_loss", max_loss)
+        object.__setattr__(self, "min_gain", min_gain)
 
 class AdaptiveEngine:
     """One app, one candidate, chronological paired observations.

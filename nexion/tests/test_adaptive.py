@@ -55,3 +55,34 @@ class AdaptiveTests(unittest.TestCase):
             self.assertEqual(e.assess(),before)
         e.observe(1,0.5,0.5)
         self.assertEqual(e.assess()["samples"],2)
+
+    def test_policy_rejects_invalid_numeric_types(self):
+        for field in ("min_gain", "max_loss"):
+            for value in (True, False, "0.5", None, 10**1000, complex(1, 0)):
+                with self.subTest(field=field, value_type=type(value).__name__), self.assertRaises(ValueError):
+                    Policy(**{field: value})
+
+    def test_policy_rejects_nonfinite_and_underflow(self):
+        from decimal import Decimal
+        for field in ("min_gain", "max_loss"):
+            for value in (float("nan"), float("inf"), Decimal("sNaN"), Decimal("1e-1000"), 0, -1):
+                with self.subTest(field=field, value=str(value)), self.assertRaises(ValueError):
+                    Policy(**{field: value})
+
+    def test_policy_canonical_float_values(self):
+        from decimal import Decimal
+        from fractions import Fraction
+        p=Policy(window=2,min_samples=2,min_gain=Decimal("0.125"),max_loss=Fraction(1,2))
+        self.assertIs(type(p.min_gain),float)
+        self.assertIs(type(p.max_loss),float)
+        e=AdaptiveEngine(p)
+        e.observe(0,0.5,0.25)
+        e.observe(1,0.5,0.25)
+        self.assertEqual(e.assess()["proposal"],"independent_review")
+        self.assertFalse(e.assess()["automatic_activation"])
+
+    def test_policy_numeric_boundaries(self):
+        self.assertEqual(Policy(max_loss=1e6,min_gain=1e6).min_gain,1e6)
+        for kwargs in ({"max_loss":1e6+1}, {"max_loss":0.1,"min_gain":0.2}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
+                Policy(**kwargs)
