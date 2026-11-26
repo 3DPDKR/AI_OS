@@ -37,3 +37,6 @@ Please use https://github.com/3DPDKR/AI_OS/issues/1 and state your technical are
 
 ## Research update — 2026-11-25
 [Static land-locomotion screening (bilingual)](./LAND_FEASIBILITY_20261125.md): all 2,592 sampled 5-degree configurations satisfy the assumed static criteria. This is not physical walking validation. We welcome voluntary review of the model, mass distribution, torque and friction measurements.
+
+## Research update — 2026-11-26
+[Static contact loads and virtual hip moments (bilingual)](./LAND_LOAD_20261126.md): under the assumed 2 kg, 5-degree slope case, the maximum normal contact load is 8.853 N and the maximum virtual hip contact moment is 0.493 N·m. These are not measured motor torques or physical gait results. We invite voluntary review of mass budgets, joint axes, actuator efficiency and friction measurements.
