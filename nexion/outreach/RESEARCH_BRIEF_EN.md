@@ -40,3 +40,6 @@ Please use https://github.com/3DPDKR/AI_OS/issues/1 and state your technical are
 
 ## Research update — 2026-11-26
 [Static contact loads and virtual hip moments (bilingual)](./LAND_LOAD_20261126.md): under the assumed 2 kg, 5-degree slope case, the maximum normal contact load is 8.853 N and the maximum virtual hip contact moment is 0.493 N·m. These are not measured motor torques or physical gait results. We invite voluntary review of mass budgets, joint axes, actuator efficiency and friction measurements.
+
+## Research update — 2026-11-27
+[Three-axis leg kinematics and static torque screening (bilingual)](./LAND_JOINT_20261127.md): 639 of 648 sampled foot positions satisfy the assumed joint limits. At 2 kg and 5 degrees, separate peak contact torque components are yaw 0.0427, hip pitch 0.4892 and knee 0.1528 N·m. Not measured actuator torque or dynamic walking performance. We invite voluntary review of CAD clearances, continuous torque/thermal data and mass budgets.
