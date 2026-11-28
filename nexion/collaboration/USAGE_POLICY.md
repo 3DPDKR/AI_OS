@@ -20,3 +20,7 @@ No unauthorized private reuse, redistribution or disclosure of restricted materi
 ## 5. 시행 / Enforcement
 참여 등록 시 본 정책에 대한 명시적 동의를 별도로 받고 버전과 일시를 기록한다. 위반 의심 시 검토 및 접근 제한·회수 절차를 적용한다. 실제 관리자 권한은 검증된 UUID와 MFA에 한하며 현재 관리자 인증 및 자동 집행은 미완료다. 정식 약관 및 IP 합의와 서비스 접근 제어는 개통 전에 별도 확정·검증한다.
 Explicit consent, version and timestamp must be recorded; access restriction and revocation are subject to review. Actual administrator enrollment and technical enforcement remain pending.
+
+## 6. 모든 연구자료 다운로드의 최종 승인 / Final approval for all research downloads
+회원 및 연구 참여 승인은 다운로드 승인이 아니다. ENGINE, CORE SDK, 코드, 문서, 논문, 실험 데이터, 로그, 이미지, 설계도, 백업 및 API 내보내기 등 모든 제한 연구자료의 다운로드는 3DPDKR에 대응하는 실제 인증된 최종 관리자의 사전 개별 승인을 필요로 한다. 신청자·자료·버전·목적·유효기간·허용 횟수를 기록하고 승인 전에는 차단한다. 승인된 전송은 권한과 철회 상태를 재검사하며 사용자·자료·시간·전송량·결과를 감사 기록에 남긴다. 승인 위임 및 자동 승인은 금지한다. 공개 모집 안내는 별도다. 기존 공개 파일이나 이미 받은 사본의 접근·복제를 소급 차단할 수 없다. 실제 다운로드 게이트웨이, 관리자 인증 및 감사 시스템은 구현·검증 전까지 운영 완료로 간주하지 않는다.
+Membership approval does not authorize downloads. Every restricted research download or export requires prior individual approval by the verified final administrator corresponding to 3DPDKR. No delegated or automatic approval. Record the requester, resource, version, purpose, expiry, allowed count and transfer outcome; recheck authorization and revocation on delivery. Public recruitment information is separate. Previously public or downloaded copies cannot be retroactively controlled. Technical enforcement remains pending.
