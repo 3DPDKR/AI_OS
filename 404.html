@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="NEXION 제한형 국제 공동연구 운영 포털">
+  <title>NEXION 공동연구 운영 포털</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="github.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 이동</a>
+  <header class="topbar">
+    <a class="brand" href="#home" aria-label="NEXION 홈">
+      <span class="brand-mark">N</span><span>NEXION</span>
+    </a>
+    <nav id="nav" aria-label="주요 메뉴"></nav>
+    <div class="header-actions">
+      <select id="locale" aria-label="언어 선택"></select>
+      <button id="authButton" class="button ghost" type="button">로그인</button>
+    </div>
+  </header>
+
+  <main id="main">
+    <section id="home" class="hero panel-view active">
+      <div class="eyebrow">RESTRICTED COLLABORATIVE RESEARCH</div>
+      <h1>실험은 투명하게,<br><span>접근은 엄격하게.</span></h1>
+      <p>NEXION은 ENGINE과 CORE SDK의 검증 가능한 공동연구를 위한 제한형 운영 시스템입니다. 승인된 참여자만 비공개 자료에 접근하며, 모든 다운로드는 개별 승인을 거칩니다.</p>
+      <div class="hero-actions">
+        <button class="button primary" data-go="account">연구 참여 신청</button>
+        <button class="button ghost" data-go="directory">공개 참여자 명단</button>
+      </div>
+      <div class="metrics" id="publicMetrics">
+        <article><strong>개별 승인</strong><span>모든 제한 자료</span></article>
+        <article><strong>AAL2</strong><span>관리자 MFA 필수</span></article>
+        <article><strong>14개</strong><span>지원 언어</span></article>
+      </div>
+    </section>
+
+    <section id="research" class="panel-view section-shell">
+      <div class="section-head"><div><span class="eyebrow">RESEARCH</span><h2>ENGINE · CORE SDK</h2></div><p>검증된 결과만 SDK로 이동하며, 버전·해시·테스트 근거를 함께 관리합니다.</p></div>
+      <div id="catalog" class="card-grid"></div>
+    </section>
+
+    <section id="directory" class="panel-view section-shell">
+      <div class="section-head"><div><span class="eyebrow">PUBLIC DIRECTORY</span><h2>공개 참여자 명단</h2></div><p>공개에 별도 동의한 승인 참여자의 가명·분야만 표시합니다.</p></div>
+      <div id="directoryList" class="table-wrap"></div>
+    </section>
+
+    <section id="account" class="panel-view section-shell">
+      <div class="section-head"><div><span class="eyebrow">MEMBERSHIP</span><h2>계정 및 참여 신청</h2></div><p id="accountState">이메일 인증 후 공동연구 지침에 동의하고 신청할 수 있습니다.</p></div>
+      <div class="card github-auth-card">
+        <h3>GitHub 연구 계정 연결</h3>
+        <p class="muted">AI_OS 실험 브랜치와 동일한 GitHub 신원을 NEXION 계정에 연결합니다. 관리자도 GitHub identity, 등록 UUID, MFA AAL2가 모두 필요합니다.</p>
+        <button id="githubAuthButton" class="button primary" type="button">GitHub로 계속하기</button>
+      </div>
+      <div class="two-col">
+        <form id="signupForm" class="card form-card">
+          <h3>회원가입</h3>
+          <label>이메일<input name="email" type="email" autocomplete="email" required></label>
+          <label>비밀번호<input name="password" type="password" autocomplete="new-password" minlength="10" required></label>
+          <button class="button primary" type="submit">인증 메일 보내기</button>
+        </form>
+        <form id="loginForm" class="card form-card">
+          <h3>로그인</h3>
+          <label>이메일<input name="email" type="email" autocomplete="email" required></label>
+          <label>비밀번호<input name="password" type="password" autocomplete="current-password" required></label>
+          <button class="button primary" type="submit">로그인</button>
+        </form>
+      </div>
+      <form id="membershipForm" class="card form-card wide hidden">
+        <h3>공동연구 참여 신청</h3>
+        <div class="form-grid">
+          <label>공개 가명<input name="alias" minlength="2" maxlength="60" required></label>
+          <label>연구 분야<select name="track" required><option>ENGINE</option><option>SDK</option><option>PAPER</option><option>SAFETY</option><option>BIOENGINEERING</option></select></label>
+          <label class="full">참여 목적<textarea name="reason" minlength="20" maxlength="2000" required></textarea></label>
+          <label class="full">특별 초청 코드(선택)<input name="inviteToken" autocomplete="off"></label>
+        </div>
+        <fieldset><legend>필수 지침 동의</legend>
+          <label class="check"><input type="checkbox" name="voluntary" required> 자발적 참여 및 관리자 승인 범위를 이해했습니다.</label>
+          <label class="check"><input type="checkbox" name="confidentiality" required> 비밀유지 및 비참여자 공유 금지에 동의합니다.</label>
+          <label class="check"><input type="checkbox" name="noncommercial" required> 무단 개인 이용·상업 이용 금지에 동의합니다.</label>
+          <label class="check"><input type="checkbox" name="privacy" required> 개인정보 처리·이메일 인증·감사 기록에 동의합니다.</label>
+          <label class="check"><input type="checkbox" name="ip" required> 기존 지식재산권과 기여자 권리를 존중합니다.</label>
+        </fieldset>
+        <fieldset><legend>선택 동의</legend>
+          <label class="check"><input type="checkbox" name="directoryOptIn"> 가명과 연구 분야를 공개 명단에 표시합니다.</label>
+          <label class="check"><input type="checkbox" name="contactOptIn"> 관리자와 직접 이메일 연락에 동의합니다.</label>
+        </fieldset>
+        <button class="button primary" type="submit">신청 제출</button>
+      </form>
+    </section>
+
+    <section id="workspace" class="panel-view section-shell">
+      <div class="section-head"><div><span class="eyebrow">WORKSPACE</span><h2>나의 연구 공간</h2></div><p>승인 상태, 다운로드 요청, 성과 제출을 한 곳에서 관리합니다.</p></div>
+      <div id="memberStatus" class="card"></div>
+      <div class="two-col">
+        <form id="downloadRequestForm" class="card form-card">
+          <h3>자료 다운로드 승인 요청</h3>
+          <label>자료<select name="resourceId" id="resourceSelect" required></select></label>
+          <label>사용 목적<textarea name="purpose" minlength="5" maxlength="1000" required></textarea></label>
+          <button class="button primary" type="submit">개별 승인 요청</button>
+        </form>
+        <form id="contributionForm" class="card form-card">
+          <h3>연구 성과 제출</h3>
+          <label>제목<input name="title" maxlength="160" required></label>
+          <label>분류<select name="category"><option>ENGINE</option><option>SDK</option><option>PAPER</option><option>SAFETY</option></select></label>
+          <label>요약<textarea name="summary" minlength="20" maxlength="4000" required></textarea></label>
+          <label>첨부(선택, 50MB 이하)<input name="file" type="file"></label>
+          <button class="button primary" type="submit">비공개 제출</button>
+        </form>
+      </div>
+      <div id="myRequests" class="table-wrap"></div>
+    </section>
+
+    <section id="chatgpt" class="panel-view section-shell">
+      <div class="section-head"><div><span class="eyebrow">CHATGPT COLLABORATION</span><h2>ChatGPT 공동연구 연결</h2></div><p>비공개 원문은 자동 전송하지 않습니다. 사용자가 검토한 요약만 새 대화로 전달합니다.</p></div>
+      <form id="chatgptForm" class="card form-card wide">
+        <label>연구 질문<textarea name="question" minlength="10" maxlength="2000" required></textarea></label>
+        <label class="check"><input type="checkbox" name="confirm" required> 개인정보·비공개 원문·비밀키를 포함하지 않았음을 확인했습니다.</label>
+        <button class="button primary" type="submit">검토 후 ChatGPT에서 열기</button>
+      </form>
+    </section>
+
+    <section id="admin" class="panel-view section-shell">
+      <div class="section-head"><div><span class="eyebrow">ADMIN CONTROL</span><h2>관리자 운영 센터</h2></div><p>등록된 관리자 UUID와 현재 세션 AAL2가 모두 확인되어야 합니다.</p></div>
+      <div id="adminGate" class="card"></div>
+      <div id="mfaPanel" class="card form-card hidden">
+        <h3>관리자 MFA</h3><div id="mfaContent"></div>
+      </div>
+      <div id="adminConsole" class="hidden">
+        <div id="adminMetrics" class="metrics"></div>
+        <div class="admin-grid">
+          <div class="card"><h3>회원 승인 대기</h3><div id="adminMembers" class="table-wrap"></div></div>
+          <div class="card"><h3>다운로드 승인 대기</h3><div id="adminDownloads" class="table-wrap"></div></div>
+        </div>
+        <div class="two-col">
+          <form id="resourceForm" class="card form-card">
+            <h3>ENGINE / CORE SDK 자료 등록</h3>
+            <label>제목<input name="title" maxlength="160" required></label>
+            <label>분류<select name="category"><option>ENGINE</option><option>SDK</option><option>RESEARCH</option><option>PAPER</option></select></label>
+            <label>버전<input name="version" maxlength="80" required></label>
+            <label>설명<textarea name="description" maxlength="4000" required></textarea></label>
+            <label>비공개 파일<input name="file" type="file" required></label>
+            <label class="check"><input name="available" type="checkbox"> 승인 회원에게 카탈로그 공개</label>
+            <button class="button primary" type="submit">암호화 저장소에 등록</button>
+          </form>
+          <form id="inviteForm" class="card form-card">
+            <h3>jinyoung 특별 초청</h3>
+            <label>초청 이메일<input name="email" type="email" required></label>
+            <label>만료(일)<input name="days" type="number" min="1" max="30" value="7" required></label>
+            <button class="button primary" type="submit">1회용 초청 코드 생성</button>
+            <output id="inviteOutput"></output>
+          </form>
+        </div>
+        <div class="card"><h3>성과 통합 및 트래픽</h3><div id="adminContributions" class="table-wrap"></div><div id="adminTraffic" class="table-wrap"></div></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <footer><span>NEXION · 3DPDKR</span><span>관리 문의: 3dpdkr@gmail.com</span></footer>
+  <script type="module" src="assets/app.js"></script>
+</body>
+</html>
+
