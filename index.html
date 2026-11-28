@@ -74,7 +74,7 @@
           <label>공개 가명<input name="alias" minlength="2" maxlength="60" required></label>
           <label>연구 분야<select name="track" required><option>ENGINE</option><option>SDK</option><option>PAPER</option><option>SAFETY</option><option>BIOENGINEERING</option></select></label>
           <label class="full">참여 목적<textarea name="reason" minlength="20" maxlength="2000" required></textarea></label>
-          <label class="full">특별 초청 코드(선택)<input name="inviteToken" autocomplete="off"></label>
+          <label class="full">특별 초청 코드(선택)<input name="inviteToken" autocomplete="off"><small>GitHub 사용자 jinyoung은 별도 코드·인증 메일 없이 필수 지침 동의 후 즉시 승인됩니다.</small></label>
         </div>
         <fieldset><legend>필수 지침 동의</legend>
           <label class="check"><input type="checkbox" name="voluntary" required> 자발적 참여 및 관리자 승인 범위를 이해했습니다.</label>
@@ -157,6 +157,6 @@
 
   <div id="toast" role="status" aria-live="polite"></div>
   <footer><span>NEXION · 3DPDKR</span><span>관리 문의: 3dpdkr@gmail.com</span></footer>
-  <script type="module" src="assets/app.js?v=20261128-3"></script>
+  <script type="module" src="assets/app.js?v=20261128-4"></script>
 </body>
 </html>
